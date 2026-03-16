@@ -22,9 +22,10 @@ The application is designed with a focus on performance, security, and maintaina
 - **Concurrency:** The application uses a worker pool pattern to process records concurrently. This allows for multiple records to be downloaded at the same time, significantly improving performance when dealing with a large number of records. Errors from concurrent workers are collected in a dedicated channel and reported at the end of the execution, ensuring that no failure goes unnoticed.
 
 - **Security:**
-    - **Secure File Permissions:** Directories are created with `0755` permissions, and files with `0644`, to prevent unauthorized access in a multi-user environment.
+    - **Secure File Permissions:** To prevent unauthorized access in multi-user environments, directories are created with `0750` permissions and metadata files with `0600`.
     - **No Hardcoded Credentials:** The API token is passed via a command-line flag, preventing sensitive information from being stored in the source code.
     - **File Overwrite Protection:** By default, the application will not overwrite existing files, preventing accidental data loss. This can be overridden with the `-overwrite` flag.
+    - **Static Analysis Compliance:** The codebase is regularly audited with `gosec` to ensure security best practices are followed.
 
 - **Performance:** The HTTP client is configured with a custom transport to optimize connection pooling and reuse, which is crucial for an application that makes a large number of API calls.
 

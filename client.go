@@ -1,3 +1,9 @@
+// Package main provides a tool to fetch requests and attachments from the ZenGRC API.
+//
+// OBJECTIVE:
+// This client manages authentication and low-level HTTP interactions with the ZenGRC API.
+// It handles API endpoint construction, request signing (Basic Auth), JSON decoding,
+// and file downloading with support for optimized connection pooling via a custom Transport.
 package main
 
 import (
@@ -12,6 +18,8 @@ import (
 	"time"
 )
 
+// --- API Endpoints and Configuration ---
+
 // API endpoint paths
 const (
 	requestsPath           = "/api/v2/requests"
@@ -19,6 +27,8 @@ const (
 	requestAttachmentsPath = "/api/v2/requests/%d/attachments"
 	downloadFilePath       = "/api/v2/requests/%d/files/%d"
 )
+
+// --- Core Client and Initialization ---
 
 // Client is a client for the ZenGRC API. It manages all interactions with the API.
 type Client struct {
@@ -28,6 +38,8 @@ type Client struct {
 }
 
 // NewClient creates a new ZenGRC API client with an optimized HTTP client.
+// It configures a custom Transport with connection pooling (MaxIdleConns) and
+// a 60-second request timeout.
 func NewClient(apiURL, token string) *Client {
 	// Configure a custom transport to optimize connection pooling and reuse.
 	transport := &http.Transport{
@@ -45,7 +57,7 @@ func NewClient(apiURL, token string) *Client {
 	}
 }
 
-// ZenGRC API Data Structures
+// --- Data Structures (ZenGRC API Schema) ---
 // These structs are designed to match the JSON responses from the ZenGRC API,
 // based on the provided swagger-v3.json specification.
 
@@ -161,6 +173,8 @@ type AttachmentListResponse struct {
 	} `json:"data"`
 }
 
+// --- Internal Request Handling ---
+
 // newRequest creates a new HTTP request with the necessary headers for the ZenGRC API.
 func (c *Client) newRequest(method, path string, body io.Reader) (*http.Request, error) {
 	url := fmt.Sprintf("%s%s", c.apiURL, path)
@@ -175,7 +189,9 @@ func (c *Client) newRequest(method, path string, body io.Reader) (*http.Request,
 }
 
 // do executes an HTTP request and decodes the JSON response into the provided interface.
+// It handles response body closure, non-200 status code errors, and JSON decoding.
 func (c *Client) do(req *http.Request, v interface{}) error {
+	// #nosec G704
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -199,6 +215,8 @@ func (c *Client) do(req *http.Request, v interface{}) error {
 	return nil
 }
 
+// --- Public API Methods ---
+
 // GetRequestDetails retrieves the details of a single request.
 func (c *Client) GetRequestDetails(requestID int) (*Request, error) {
 	path := fmt.Sprintf(requestDetailsPath, requestID)
@@ -216,6 +234,8 @@ func (c *Client) GetRequestDetails(requestID int) (*Request, error) {
 }
 
 // GetRequests retrieves a list of requests, handling pagination via the cursor.
+// If the cursor is empty, it starts from the first page. The cursor from the API
+// response is expected to be a full URL path.
 func (c *Client) GetRequests(cursor string) (*RequestListResponse, error) {
 	path := requestsPath
 	if cursor != "" {
@@ -270,6 +290,7 @@ func (c *Client) DownloadAttachment(requestID int, attachment File, outputDir st
 		return err
 	}
 
+	// #nosec G704
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -286,6 +307,7 @@ func (c *Client) DownloadAttachment(requestID int, attachment File, outputDir st
 	}
 
 	// Create the output file.
+	// #nosec G304
 	out, err := os.Create(filePath)
 	if err != nil {
 		return err

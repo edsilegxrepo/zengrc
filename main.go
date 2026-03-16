@@ -1,3 +1,15 @@
+// Package main implements a ZenGRC data extraction tool.
+//
+// OBJECTIVE:
+// This application provides a high-performance, concurrent CLI tool to export
+// request metadata and their associated file attachments from a ZenGRC instance.
+//
+// CORE FUNCTIONALITY:
+// - Concurrent processing using a worker pool pattern for scalability.
+// - Paginated retrieval of all requests from the ZenGRC API using cursor-based navigation.
+// - Metadata preservation in JSON format with pretty-printing.
+// - Robust file downloading with duplicate check (via os.Stat) and error handling.
+// - Command-line configuration for API URL, token, output directory, and worker count.
 package main
 
 import (
@@ -12,9 +24,14 @@ import (
 
 var version = "dev"
 
-// main is the entry point of the application. It parses command-line flags,
-// sets up a worker pool for concurrent processing, fetches all records from the
-// ZenGRC API, and distributes them to the workers for processing.
+// --- Entry Point and Orchestration ---
+
+// main is the entry point of the application. It performs the following steps:
+// 1. Parses and validates command-line flags.
+// 2. Initializes the ZenGRC API client.
+// 3. Starts a worker pool for concurrent request processing.
+// 4. Fetches all requests from the API via a paginated producer goroutine.
+// 5. Orchestrates the shutdown of the worker pool and error reporting.
 func main() {
 	// Define and parse command-line flags for configuration.
 	apiURL := flag.String("api-url", "", "The URL of your ZenGRC API instance (e.g., https://acme.api.zengrc.com).")
@@ -95,14 +112,17 @@ func main() {
 	}
 }
 
-// processRequest handles the processing of a single ZenGRC request. It creates a
-// directory for the record, saves its metadata, and downloads all associated attachments.
+// --- Request Processing Logic ---
+
+// processRequest handles the processing of a single ZenGRC request.
+// It creates a dedicated directory for the request, saves its full metadata,
+// and downloads all associated file attachments concurrently (within the worker).
 func processRequest(client *Client, request Request, outputDir string, overwrite bool) error {
 	fmt.Printf("Processing request: %d - %s\n", request.ID, request.Title)
 
 	// Create a dedicated directory for the record.
 	recordDir := filepath.Join(outputDir, fmt.Sprintf("record_%d", request.ID))
-	if err := os.MkdirAll(recordDir, 0755); err != nil {
+	if err := os.MkdirAll(recordDir, 0750); err != nil {
 		return fmt.Errorf("error creating directory for record %d: %w", request.ID, err)
 	}
 
@@ -127,6 +147,8 @@ func processRequest(client *Client, request Request, outputDir string, overwrite
 	return nil
 }
 
+// --- Metadata Persistence ---
+
 // saveMetadata fetches the full details of a request and saves it as a
 // metadata.json file in the specified directory.
 func saveMetadata(client *Client, requestID int, dir string) error {
@@ -142,5 +164,5 @@ func saveMetadata(client *Client, requestID int, dir string) error {
 	}
 
 	// Write the metadata to the file.
-	return os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)
+	return os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0600)
 }
